@@ -57,8 +57,7 @@ Updated for use on CCS v4 Sept 2010
 #define PI 3.141592653589793
 #define TFRAME FRAMEINC/FSAMP
 #define time_counter 312
-#define alpha 20
-#define lambda 0.01
+
       
 
 /******************************* Global declarations ********************************/
@@ -112,6 +111,8 @@ float noisesq;
 float Psq;
 float SNR=1;
 float alphascale=1;
+float alpha= 2;
+float lambda= 0.1;
 
 
 /* 		absX[k] = min(FLT_MAX, cabs(X[i]));
@@ -128,6 +129,7 @@ int Optimisation5=0;
 int Optimisation6=1;
 //int Optimisation7=0;
 //int Optimisation8=0;
+int unfiltered =0;
 /**********************************************************************/
 
  /******************************* Function prototypes *******************************/
@@ -286,6 +288,16 @@ fft(FFTLEN,X);
 
 /***********************************************/
 
+if(unfiltered){
+	Optimisation1=0;
+ 	Optimisation2=0;
+ 	Optimisation3=0;
+ 	Optimisation4=0;		
+ 	Optimisation5=0;
+ 	Optimisation6=0;
+
+}
+
 
 for( k = 0; k < FFTLEN; k++){                           
 	absX[k] = cabs(X[k]);
@@ -346,10 +358,10 @@ for( k = 0; k < FFTLEN; k++){
 	/***********************	OPTIMISATION 5 goes here	************************/
 	if(Optimisation5){
 		
-		absX[k] = min(cabs(X[i]), FLT_MAX);
+		absX[k] = min(cabs(X[k]), FLT_MAX);
 		absXsq = min(absX[k]*absX[k], FLT_MAX);
-		noisesq = min(noise[i]*noise[i], FLT_MAX);
-		Psq = min(P[i]*P[i], FLT_MAX);		
+		noisesq = min(noise[k]*noise[k], FLT_MAX);
+		Psq = min(P[k]*P[k], FLT_MAX);		
 		
 	}
  	/*******************************************************************************/
@@ -468,3 +480,4 @@ float max (float a, float b){
 ///*Low Pass Filter*/
 float lowpass(float x, float prev[], int k){
 	return (1-K_factor)*x + (K_factor)*prev[k];}
+	
