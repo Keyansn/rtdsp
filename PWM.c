@@ -230,9 +230,9 @@ int main()
     kd_vel = 0.0;
     
     // pid_rev  
-    kp_rev = 0.01;
+    kp_rev = 0.001;
     ki_rev = 0;
-    kd_rev = 5;
+    kd_rev = 0;
     
     // Initial Wait Time
     wait_time = 100; // us
@@ -412,9 +412,11 @@ void pid_rev()
         
         delta = output/OGdelta;
     
-        pc.printf("%f,%f\n\r", delta, revolutions);
-        if(delta>1) delta =1;
+        if(delta>0.5) delta =0.5;
         if(delta<0) delta =0;
+ 
+        pc.printf("%f,%f\n\r", delta, revolutions);
+
         
         // Lower limit output to small non-zero value to avoid divby0 error
         double output_angular_velocity = (output > 0) ? output : 0.00000001; 
