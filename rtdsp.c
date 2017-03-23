@@ -101,9 +101,9 @@ float *M4;
 float *temp;
 float *noise;
 float *noise_prev;
-float g;
+float *g;
 complex *Y;
-float K_factor = 0.85;
+float K_factor = 0.80;
 float P[FFTLEN];
 float P_prev[FFTLEN];
 float absXsq;
@@ -111,8 +111,8 @@ float noisesq;
 float Psq;
 float SNR=1;
 float alphascale=1;
-float alpha= 2;
-float lambda= 0.1;
+float alpha= 4;
+float lambda= 0.015;
 
 
 /* 		absX[k] = min(FLT_MAX, cabs(X[i]));
@@ -122,7 +122,7 @@ float lambda= 0.1;
 
 /**********************************Switches**********************************/
 int Optimisation1=1;
-int Optimisation2=1;
+int Optimisation2=0;
 int Optimisation3=1;
 int Optimisation4=4;		
 int Optimisation5=0;
@@ -145,10 +145,9 @@ float lowpass(float x, float prev[], int k);
 void main()
 {      
 
-  int k; // used in various for loops
+  int k=0; // used in various for loops
   
 /*  Initialize and zero fill arrays */  
-
 
 
 
@@ -166,9 +165,9 @@ M3 = (float *) calloc(FFTLEN, sizeof(float));
 M4 = (float *) calloc(FFTLEN, sizeof(float));
 noise = (float *) calloc(FFTLEN, sizeof(float));
 noise_prev = (float *) calloc(FFTLEN, sizeof(float));
-//g = (float *) calloc(FFTLEN, sizeof(float));
+g = (float *) calloc(FFTLEN, sizeof(float));
 Y = (complex *) calloc(FFTLEN, sizeof(complex));
-
+temp = (float *) calloc(FFTLEN, sizeof(float));
 
 
 
@@ -185,6 +184,8 @@ Y = (complex *) calloc(FFTLEN, sizeof(complex));
 {                           
 inwin[k] = sqrt((1.0-WINCONST*cos(PI*(2*k+1)/FFTLEN))/OVERSAMP);
 outwin[k] = inwin[k]; 
+P[k] = 0;
+P_prev[k] =0;
 } 
   ingain=INGAIN;
   outgain=OUTGAIN;        
@@ -262,10 +263,25 @@ for (k=0;k<FFTLEN;k++){
 /************************* DO PROCESSING OF FRAME  HERE **************************/
 /* please add your code, at the moment the code simply copies the input to the 
 ouptut with no processing */  
-      
+
+
+/***************** Applying fft ****************/ 
+for( k = 0; k < FFTLEN; k++){                           
+	X[k] = cmplx(inframe[k],0);} /* copy input straight into output */ 
+	
+	      
+fft(FFTLEN,X);	  
+for(k =0 ; k<FFTLEN; k++){
+absX[k] = cabs(X[k]);
+}
+
+for( k = 0; k < FFTLEN; k++){ 
+	
+	P[k] = (1-K_factor)*absX[k] + (K_factor)*P_prev[k];
+	P_prev[k]=P[k];
+}
 	  
-	  
-if(count >= time_counter){
+if(count >= time_counter/4){
 	count = 0;
 	temp = M4;
 	M4 = M3;
@@ -273,59 +289,51 @@ if(count >= time_counter){
 	M2 = M1;
 	M1 = temp;
 
-	for ( k = 0 ; k < FFTLEN ; k++){
-		M1[k] = FLT_MAX; }}	  
+	for ( k = 0 ; k < FFTLEN ; k++)
+	{
+		M1[k] = P[k]; 
+		}
+	}	  
+count++;  
 	  
-	  
-/***************** Applying fft ****************/ 
-	  
-	  
-	  
-for( k = 0; k < FFTLEN; k++){                           
-	X[k] = cmplx(inframe[k],0);} /* copy input straight into output */ 
-	
-fft(FFTLEN,X);
-
+	 
 /***********************************************/
-
-if(unfiltered){
-	Optimisation1=0;
- 	Optimisation2=0;
- 	Optimisation3=0;
- 	Optimisation4=0;		
- 	Optimisation5=0;
- 	Optimisation6=0;
-
-}
-
-
+ 
+ 
+/*
 for( k = 0; k < FFTLEN; k++){                           
 	absX[k] = cabs(X[k]);
 	
-	if(Optimisation1){
+	if(Optimisation1)
+	{
 		// Square absX to put in power domain if o2 picked
-		if(Optimisation2){
+		if(Optimisation2)
+		{
 			absX[k] *= absX[k];
 		}
 		
 		// Perform low pass filter	
-		P[k] = lowpass(absX[k], P_prev, k); 
+		P[k] = (1-K_factor)*absX[k] + (K_factor)*P_prev[k];
 				
 		// Store value for next lpf equation
-		P_prev[k] = P[k];}
+		P_prev[k] = P[k];
+	}
 		
-		if(Optimisation2){
-			P[k] = sqrt(P[k]);}
+	if(Optimisation2)
+	{
+		P[k] = sqrt(P[k]);
+	}
 		
 	else
 		P[k] = absX[k];
 		
-	M1[k] = min(M1[k],P[k]);
+		M1[k] = min(M1[k],P[k]);
 	}
-	
+	*/
 /***********************************************/
 	
 for( k = 0; k < FFTLEN; k++){ 
+	M1[k] = min(M1[k],P[k]);
 	noise[k] = alpha*(min(min(M1[k],M2[k]),min(M3[k],M4[k])));
 	
 
@@ -339,33 +347,33 @@ for( k = 0; k < FFTLEN; k++){
 	
 	
 	if(Optimisation3){
-		noise[k] = lowpass(noise[k], noise_prev, k);
+		noise[k] = (1-K_factor)*noise[k] + (K_factor)*noise_prev[k];
+		
 		noise_prev[k] = noise[k];	
+	}
+		
 		
 		/***********************	OPTIMISATION 6 goes here	************************/
+	//}	
+//}	
+	
 
-	}	
-	
-	
-}	
-	
-count++;
 /***********************************************/
 	
 
-for( k = 0; k < FFTLEN; k++){
+//for( k = 0; k < FFTLEN; k++){
 
 	/***********************	OPTIMISATION 5 goes here	************************/
-	if(Optimisation5){
+	//if(Optimisation5){
 		
-		absX[k] = min(cabs(X[k]), FLT_MAX);
-		absXsq = min(absX[k]*absX[k], FLT_MAX);
-		noisesq = min(noise[k]*noise[k], FLT_MAX);
-		Psq = min(P[k]*P[k], FLT_MAX);		
+		//absX[k] = min(cabs(X[k]), FLT_MAX);
+		//absXsq = min(absX[k]*absX[k], FLT_MAX);
+		//noisesq = min(noise[k]*noise[k], FLT_MAX);
+		//Psq = min(P[k]*P[k], FLT_MAX);		
 		
-	}
+	//}
  	/*******************************************************************************/
-	
+	/*
 	switch(Optimisation4){
 		
 		//no change to default
@@ -389,7 +397,7 @@ for( k = 0; k < FFTLEN; k++){
 		//(P/X,N/X)		
 		case 2:
 			if (Optimisation5)
-				g = max(lambda*sqrt(Psq/absXsq), sqrt(1-(noisesq/absXsq)));
+			g = max(lambda*sqrt(Psq/absXsq), sqrt(1-(noisesq/absXsq)));
 			else
 				g = max(lambda*P[k]/absX[k], 1-(noise[k]/absX[k]));
 			
@@ -409,23 +417,21 @@ for( k = 0; k < FFTLEN; k++){
 			if (Optimisation5)
 				g = max(lambda, sqrt(1-(noisesq/Psq)));
 			else
-				g = max(lambda, 1-(noise[k]/P[k]));
-
+				g[k] = max(lambda, 1-(noise[k]/P[k]));
+				
 			break;
-	}
+	}*/
 
+g[k] = max(lambda, 1-(noise[k]/P[k]));
 
-
-Y[k] = rmul(g,X[k]);
-
-
+Y[k] = rmul(g[k],X[k]);
 		}	//end of loop
 
 						
 ifft(FFTLEN,Y);
 
 for( k = 0; k < FFTLEN; k++){
-	outframe[k] = real(Y[k]);}	//check if it needs to be real or .r $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+	outframe[k] = Y[k].r;}	//check if it needs to be real or .r $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
 
